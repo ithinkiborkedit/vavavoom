@@ -1,0 +1,49 @@
+func (p *Program) Execute(state *ExecutionState) error {
+	if p.Repo == nil {
+		return fmt.Errorf("no repo specified")
+	}
+	if p.Branch == nil {
+		return fmt.Errorf("no branch specified")
+	}
+	repo := strings.Trim(p.Repo.URL, `"`)
+	branch := strings.Trim(p.Branch.Name, `"`)
+
+	run := func(name string, opts map[string]string) error {
+		cmd, ok := Registry[name]
+		if !ok {
+			return fmt.Errorf("command not found: %s", name)
+		}
+		return cmd(state, opts)
+	}
+
+	if strings.HasPrefix(repo, "http://") ||
+		strings.HasPrefix(repo, "https://") ||
+		strings.HasPrefix(repo, "git@") {
+		if err := run("clone", map[string]string{"url": repo}); err != nil {
+			return fmt.Errorf("git clone failed: %w", err)
+		}
+		if err := run("checkout", map[string]string{"name": branch}); err != nil {
+			return fmt.Errorf("git checkout failed: %w", err)
+		}
+	} else {
+		if err := run("init", map[string]string{"directory": repo}); err != nil {
+			return fmt.Errorf("git init failed: %w", err)
+		}
+		if err := run("createBranch", map[string]string{"name": branch}); err != nil {
+			return fmt.Errorf("git create branch failed: %w", err)
+		}
+		if err := run("track", map[string]string{"name": branch}); err != nil {
+			return fmt.Errorf("git track branch failed: %w", err)
+		}
+		if err := run("push", map[string]string{}); err != nil {
+			return fmt.Errorf("git push failed: %w", err)
+		}
+	}
+
+	for _, stmt := range p.Statements {
+		if err := stmt.Execute(state); err != nil {
+			return err
+		}
+	}
+	return nil
+}
