@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/alecthomas/participle/v2"
+	"github.com/alecthomas/participle/v2/lexer"
 )
 
 type Program struct {
@@ -13,7 +14,9 @@ type Program struct {
 }
 
 type Header struct {
-	Repo   string `"#!" @Ident ":"`
+	Bang   string `@HeaderBang`
+	Repo   string `@RepoURL`
+	Colon  string `@Colon`
 	Branch string `@Ident`
 }
 
@@ -71,7 +74,7 @@ type ElseStmt struct {
 type Expr struct {
 	Ident  *string     ` @Ident`
 	String *string     `| @String`
-	Number *float64    `| @Int`
+	Number *float64    `| @Number`
 	Semver *Semver     `| @@`
 	Bool   *BoolLit    `| @@`
 	Array  []*Expr     `| "[" [ @@ { "," @@ } ] "]"`
@@ -85,11 +88,11 @@ type BoolLit struct {
 
 type Semver struct {
 	V     *string `[@"v"]`
-	Major int     `@Int`
+	Major int     `@Number`
 	Dot1  string  `"."`
-	Minor string  `@Int`
+	Minor string  `@Number`
 	Dot2  string  `"."`
-	Patch string  `@Int`
+	Patch string  `@Number`
 	Pre   *string `["-" @Ident ]`
 	Build *string `["+" @Ident ]`
 }
@@ -125,7 +128,39 @@ func (s *Semver) String() string {
 	return b.String()
 }
 
-var parser = participle.MustBuild[Program]()
+var DslLexer = lexer.MustSimple([]lexer.SimpleRule{
+	{"HeaderBang", `#!`},
+	{"RepoURL", `[^:\s]+`}, // repo: any non-colon, non-whitespace string (includes URLs)
+	{"Colon", `:`},
+	{"Let", `let\b`},
+	{"For", `for\b`},
+	{"In", `in\b`},
+	{"If", `if\b`},
+	{"Else", `else\b`},
+	{"True", `true\b`},
+	{"False", `false\b`},
+	{"Number", `[-+]?\d*\.?\d+([eE][-+]?\d+)?`},
+	{"String", `"(?:\\.|[^"])*"`},
+	{"Ident", `[a-zA-Z_][a-zA-Z0-9_]*`},
+	{"LBrace", `\{`},
+	{"RBrace", `\}`},
+	{"LBracket", `\[`},
+	{"RBracket", `\]`},
+	{"LParen", `\(`},
+	{"RParen", `\)`},
+	{"Comma", `,`},
+	{"Assign", `=`},
+	{"Semicolon", `;`},
+	// Operators (add more as needed)
+	{"Op", `==|!=|<=|>=|&&|\|\||[+\-*/<>]`},
+	{"Dot", `\.`},
+	{"Whitespace", `[ \t\n\r]+`},
+	{"Comment", `//[^\n]*`},
+})
+
+var parser = participle.MustBuild[Program](
+	participle.Lexer(DslLexer),
+)
 
 func ParseScript(input string) (*Program, error) {
 	return parser.ParseString("", input)
