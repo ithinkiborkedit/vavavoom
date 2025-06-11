@@ -1,1 +1,2 @@
-#!https://github.com/ithinkiborkedit/gush-proto.git:feat/update_protobuf
+repo "https://github.com/ithinkiborkedit/gush-proto.git"
+branch "main"

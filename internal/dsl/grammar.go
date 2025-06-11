@@ -9,15 +9,19 @@ import (
 )
 
 type Program struct {
-	Header     *Header      `@@`
+	Repo       *RepoDecl    `@@`
+	Branch     *BranchDecl  `@@`
 	Statements []*Statement `{ @@ }`
 }
 
-type Header struct {
-	Bang   string `@HeaderBang`
-	Repo   string `@RepoURL`
-	Colon  string `@Colon`
-	Branch string `@Ident`
+type RepoDecl struct {
+	Keyword string `@Repo`
+	URL     string `@String`
+}
+
+type BranchDecl struct {
+	Keyword string `@Branch`
+	Name    string `@String`
 }
 
 type Statement struct {
@@ -129,9 +133,13 @@ func (s *Semver) String() string {
 }
 
 var DslLexer = lexer.MustSimple([]lexer.SimpleRule{
-	{"HeaderBang", `#!`},
-	{"RepoURL", `[^:\s]+`}, // repo: any non-colon, non-whitespace string (includes URLs)
-	{"Colon", `:`},
+	// {"HeaderBang", `#!`},
+	{"Repo", `repo\b`},
+	{"Branch", `branch\b`},
+	{"String", `"(?:\\.|[^"])*"`},
+	{"Whitespace", `[ \t\n\r]+`},
+	{"Comment", `//[^\n]*`},
+	{"Ident", `[a-zA-Z_][a-zA-Z0-9_]*`},
 	{"Let", `let\b`},
 	{"For", `for\b`},
 	{"In", `in\b`},
@@ -139,9 +147,8 @@ var DslLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{"Else", `else\b`},
 	{"True", `true\b`},
 	{"False", `false\b`},
-	{"Number", `[-+]?\d*\.?\d+([eE][-+]?\d+)?`},
 	{"String", `"(?:\\.|[^"])*"`},
-	{"Ident", `[a-zA-Z_][a-zA-Z0-9_]*`},
+	{"Number", `[-+]?\d*\.?\d+([eE][-+]?\d+)?`},
 	{"LBrace", `\{`},
 	{"RBrace", `\}`},
 	{"LBracket", `\[`},
@@ -154,8 +161,6 @@ var DslLexer = lexer.MustSimple([]lexer.SimpleRule{
 	// Operators (add more as needed)
 	{"Op", `==|!=|<=|>=|&&|\|\||[+\-*/<>]`},
 	{"Dot", `\.`},
-	{"Whitespace", `[ \t\n\r]+`},
-	{"Comment", `//[^\n]*`},
 })
 
 var parser = participle.MustBuild[Program](

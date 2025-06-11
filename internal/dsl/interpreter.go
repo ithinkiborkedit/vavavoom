@@ -6,12 +6,62 @@ import (
 	"strings"
 )
 
+// func (p *Program) Execute(state *dslcore.ExecutionState) error {
+// 	if p.Repo != nil {
+// 		if err := p.Rep.Execute(state); err != nil {
+// 			return fmt.Errorf("header execution failed: %w", err)
+// 		}
+// 	}
+// 	for _, stmt := range p.Statements {
+// 		if err := stmt.Execute(state); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
+
 func (p *Program) Execute(state *dslcore.ExecutionState) error {
-	if p.Header != nil {
-		if err := p.Header.Execute(state); err != nil {
-			return fmt.Errorf("header execution failed: %w", err)
+	if p.Repo == nil {
+		return fmt.Errorf("no repo specified")
+	}
+	if p.Branch == nil {
+		return fmt.Errorf("no branch specified")
+	}
+	repo := strings.Trim(p.Repo.URL, `"`)
+	branch := strings.Trim(p.Branch.Name, `"`)
+
+	run := func(name string, opts map[string]string) error {
+		cmd, ok := Commands[name]
+		if !ok {
+			return fmt.Errorf("command not found: %s", name)
+		}
+		return cmd(state, opts)
+	}
+
+	if strings.HasPrefix(repo, "http://") ||
+		strings.HasPrefix(repo, "https://") ||
+		strings.HasPrefix(repo, "git@") {
+		if err := run("clone", map[string]string{"url": repo}); err != nil {
+			return fmt.Errorf("git clone failed: %w", err)
+		}
+		if err := run("checkout", map[string]string{"name": branch}); err != nil {
+			return fmt.Errorf("git checkout failed: %w", err)
+		}
+	} else {
+		if err := run("init", map[string]string{"directory": repo}); err != nil {
+			return fmt.Errorf("git init failed: %w", err)
+		}
+		if err := run("createBranch", map[string]string{"name": branch}); err != nil {
+			return fmt.Errorf("git create branch failed: %w", err)
+		}
+		if err := run("track", map[string]string{"name": branch}); err != nil {
+			return fmt.Errorf("git track branch failed: %w", err)
+		}
+		if err := run("push", map[string]string{}); err != nil {
+			return fmt.Errorf("git push failed: %w", err)
 		}
 	}
+
 	for _, stmt := range p.Statements {
 		if err := stmt.Execute(state); err != nil {
 			return err
@@ -20,48 +70,48 @@ func (p *Program) Execute(state *dslcore.ExecutionState) error {
 	return nil
 }
 
-func isRemoteURL(s string) bool {
-	return len(s) > 0 &&
-		(strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "git@"))
-}
+// func isRemoteURL(s string) bool {
+// 	return len(s) > 0 &&
+// 		(strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "git@"))
+// }
 
-func (h *Header) Execute(state *dslcore.ExecutionState) error {
-	if isRemoteURL(h.Repo) {
-		cmds := []*CommandStmt{
-			{Name: "clone", Options: []*CommandOption{
-				{Dot: ".", Name: "url", Value: &Expr{String: &h.Repo}},
-			}},
-			{Name: "checkout", Options: []*CommandOption{
-				{Dot: ".", Name: "name", Value: &Expr{String: &h.Branch}},
-			}},
-		}
-		for _, c := range cmds {
+// func (h *Header) Execute(state *dslcore.ExecutionState) error {
+// 	if isRemoteURL(h.Repo) {
+// 		cmds := []*CommandStmt{
+// 			{Name: "clone", Options: []*CommandOption{
+// 				{Dot: ".", Name: "url", Value: &Expr{String: &h.Repo}},
+// 			}},
+// 			{Name: "checkout", Options: []*CommandOption{
+// 				{Dot: ".", Name: "name", Value: &Expr{String: &h.Branch}},
+// 			}},
+// 		}
+// 		for _, c := range cmds {
 
-			if err := c.Execute(state); err != nil {
-				return err
-			}
-		}
-	} else {
-		cmds := []*CommandStmt{
-			{Name: "init", Options: []*CommandOption{
-				{Dot: ".", Name: "directory", Value: &Expr{String: &h.Repo}},
-			}},
-			{Name: "createBranch", Options: []*CommandOption{
-				{Dot: ".", Name: "name", Value: &Expr{String: &h.Branch}},
-			}},
-			{Name: "push", Options: nil},
-			{Name: "track", Options: []*CommandOption{
-				{Dot: ".", Name: "name", Value: &Expr{String: &h.Branch}},
-			}},
-		}
-		for _, c := range cmds {
-			if err := c.Execute(state); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
+// 			if err := c.Execute(state); err != nil {
+// 				return err
+// 			}
+// 		}
+// 	} else {
+// 		cmds := []*CommandStmt{
+// 			{Name: "init", Options: []*CommandOption{
+// 				{Dot: ".", Name: "directory", Value: &Expr{String: &h.Repo}},
+// 			}},
+// 			{Name: "createBranch", Options: []*CommandOption{
+// 				{Dot: ".", Name: "name", Value: &Expr{String: &h.Branch}},
+// 			}},
+// 			{Name: "push", Options: nil},
+// 			{Name: "track", Options: []*CommandOption{
+// 				{Dot: ".", Name: "name", Value: &Expr{String: &h.Branch}},
+// 			}},
+// 		}
+// 		for _, c := range cmds {
+// 			if err := c.Execute(state); err != nil {
+// 				return err
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (s *Statement) Execute(state *dslcore.ExecutionState) error {
 	switch {
