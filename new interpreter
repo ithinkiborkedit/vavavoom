@@ -1,0 +1,57 @@
+package dsl
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Modify your Program.Execute method:
+func (p *Program) Execute(state *ExecutionState) error {
+	// --- Repo and Branch Declaration ---
+	if p.Repo == nil {
+		return fmt.Errorf("no repo specified")
+	}
+	if p.Branch == nil {
+		return fmt.Errorf("no branch specified")
+	}
+	repo := strings.Trim(p.Repo.URL, `"`)
+	branch := strings.Trim(p.Branch.Name, `"`)
+
+	if isRemoteURL(repo) {
+		// Clone the repo and checkout the branch
+		if err := state.RunCommand("clone", map[string]string{"url": repo}); err != nil {
+			return fmt.Errorf("git clone failed: %w", err)
+		}
+		if err := state.RunCommand("checkout", map[string]string{"name": branch}); err != nil {
+			return fmt.Errorf("git checkout failed: %w", err)
+		}
+	} else {
+		// Init repo, create branch, track, push
+		if err := state.RunCommand("init", map[string]string{"directory": repo}); err != nil {
+			return fmt.Errorf("git init failed: %w", err)
+		}
+		if err := state.RunCommand("createBranch", map[string]string{"name": branch}); err != nil {
+			return fmt.Errorf("git create branch failed: %w", err)
+		}
+		if err := state.RunCommand("track", map[string]string{"name": branch}); err != nil {
+			return fmt.Errorf("git track branch failed: %w", err)
+		}
+		if err := state.RunCommand("push", map[string]string{}); err != nil {
+			return fmt.Errorf("git push failed: %w", err)
+		}
+	}
+
+	// --- Remaining DSL statements ---
+	for _, stmt := range p.Statements {
+		if err := stmt.Execute(state); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isRemoteURL(url string) bool {
+	return strings.HasPrefix(url, "http://") ||
+		strings.HasPrefix(url, "https://") ||
+		strings.HasPrefix(url, "git@")
+}
