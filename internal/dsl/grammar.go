@@ -13,7 +13,7 @@ type Program struct {
 }
 
 type Header struct {
-	Repo   string `"#!"@Ident":"`
+	Repo   string `"#!" @Ident ":"`
 	Branch string `@Ident`
 }
 
@@ -32,7 +32,7 @@ type ExprStmt struct {
 type LetStmt struct {
 	Let   string `"let"`
 	Name  string `@Ident`
-	Eq    string "="
+	Eq    string `"="`
 	Value *Expr  `@@`
 }
 
@@ -48,11 +48,11 @@ type CommandOption struct {
 }
 
 type ForStmt struct {
-	For   string `"for"`
-	Var   string `@Ident`
-	In    string `"in"`
-	Range *Expr  `@@`
-	Body  []*Statement
+	For   string       `"for"`
+	Var   string       `@Ident`
+	In    string       `"in"`
+	Range *Expr        `@@`
+	Body  []*Statement `"{" { @@ } "}"`
 }
 
 type IfStmt struct {
@@ -70,10 +70,10 @@ type ElseStmt struct {
 
 type Expr struct {
 	Ident  *string     ` @Ident`
-	String *string     `| @string`
-	Number *float64    `| @Number`
+	String *string     `| @String`
+	Number *float64    `| @Int`
 	Semver *Semver     `| @@`
-	Bool   *BoolLit    `| ( @"true" | "false" )`
+	Bool   *BoolLit    `| @@`
 	Array  []*Expr     `| "[" [ @@ { "," @@ } ] "]"`
 	Call   *CallExpr   `| @@`
 	Binary *BinaryExpr `| @@`
